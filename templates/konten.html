@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}Manajemen Konten
+<script>
+  // AUTO-REFRESH: Cek status postingan tiap 10 detik
+  let lastDataStr = null;
+  setInterval(() => {
+    fetch('/api/konten')
+      .then(res => res.json())
+      .then(data => {
+        // Kita bandingkan jumlah data dengan status 'posted' & 'scheduled'
+        const currentDataStr = JSON.stringify(data.map(item => item.status));
+        if (lastDataStr !== null && lastDataStr !== currentDataStr) {
+            console.log('Perubahan status terdeteksi! Memuat ulang halaman...');
+            window.location.reload();
+        }
+        lastDataStr = currentDataStr;
+      })
+      .catch(err => console.error('Gagal mengecek pembaruan konten:', err));
+  }, 10000);
+</script>
+
+{% endblock %}
+{% block page_title %}Manajemen Konten
+<script>
+  // AUTO-REFRESH: Cek status postingan tiap 10 detik
+  let lastDataStr = null;
+  setInterval(() => {
+    fetch('/api/konten')
+      .then(res => res.json())
+      .then(data => {
+        // Kita bandingkan jumlah data dengan status 'posted' & 'scheduled'
+        const currentDataStr = JSON.stringify(data.map(item => item.status));
+        if (lastDataStr !== null && lastDataStr !== currentDataStr) {
+            console.log('Perubahan status terdeteksi! Memuat ulang halaman...');
+            window.location.reload();
+        }
+        lastDataStr = currentDataStr;
+      })
+      .catch(err => console.error('Gagal mengecek pembaruan konten:', err));
+  }, 10000);
+</script>
+
+{% endblock %}
+
+
+
+{% block content %}
+
+{# ── Bar filter + pencarian ── #}
+<div class="filter-bar">
+
+  {# Grup tombol filter status #}
+  <div class="filter-group">
+
+    {#
+      url_for('content.konten_list') = link ke /konten tanpa filter
+      url_for('content.konten_list', status='draft') = link ke /konten?status=draft
+
+      Penjelasan kondisi active:
+      - Tombol "Semua" aktif kalau tidak ada filter status
+      - Tombol lain aktif kalau status_filter cocok
+    #}
+
+    <a href="{{ url_for('content.konten_list',
+               platform=platform_filter if platform_filter else '',
+               cari=kata_cari if kata_cari else '') }}"
+       class="filter-btn {% if not status_filter %}active{% endif %}">
+      Semua
+    </a>
+
+    <a href="{{ url_for('content.konten_list', status='draft',
+               platform=platform_filter if platform_filter else '',
+               cari=kata_cari if kata_cari else '') }}"
+       class="filter-btn {% if status_filter == 'draft' %}active{% endif %}">
+      ✏️ Draft
+    </a>
+
+    <a href="{{ url_for('content.konten_list', status='scheduled',
+               platform=platform_filter if platform_filter else '',
+               cari=kata_cari if kata_cari else '') }}"
+       class="filter-btn {% if status_filter == 'scheduled' %}active{% endif %}">
+      ⏰ Terjadwal
+    </a>
+
+    <a href="{{ url_for('content.konten_list', status='posted',
+               platform=platform_filter if platform_filter else '',
+               cari=kata_cari if kata_cari else '') }}"
+       class="filter-btn {% if status_filter == 'posted' %}active{% endif %}">
+      ✅ Tayang
+    </a>
+
+  </div>
+
+  {# Separator platform #}
+  <span style="color:#DDD">|</span>
+
+  <a href="{{ url_for('content.konten_list',
+             status=status_filter if status_filter else '',
+             cari=kata_cari if kata_cari else '') }}"
+     class="filter-btn {% if not platform_filter %}active{% endif %}">
+    Semua Platform
+  </a>
+
+  <a href="{{ url_for('content.konten_list', platform='instagram',
+             status=status_filter if status_filter else '',
+             cari=kata_cari if kata_cari else '') }}"
+     class="filter-btn {% if platform_filter == 'instagram' %}active{% endif %}">
+    📸 Instagram
+  </a>
+
+  <a href="{{ url_for('content.konten_list', platform='tiktok',
+             status=status_filter if status_filter else '',
+             cari=kata_cari if kata_cari else '') }}"
+     class="filter-btn {% if platform_filter == 'tiktok' %}active{% endif %}">
+    🎵 TikTok
+  </a>
+
+  {# Form pencarian — dorong ke kanan via margin-left:auto di .search-wrap #}
+  <form method="GET" action="{{ url_for('content.konten_list') }}" class="search-wrap">
+    {# Pertahankan filter yang sedang aktif saat pencarian #}
+    {% if status_filter %}
+      <input type="hidden" name="status" value="{{ status_filter }}">
+    {% endif %}
+    {% if platform_filter %}
+      <input type="hidden" name="platform" value="{{ platform_filter }}">
+    {% endif %}
+
+    <input
+      type="text"
+      name="cari"
+      class="search-input"
+      placeholder="🔍 Cari judul konten..."
+      value="{{ kata_cari or '' }}"
+    >
+    <button type="submit" class="btn-search">Cari</button>
+  </form>
+
+</div>{# /filter-bar #}
+
+
+{# ── Tag kata pencarian aktif ── #}
+{% if kata_cari %}
+  <div class="search-tag">
+    🔍 Hasil pencarian: "<strong>{{ kata_cari }}</strong>"
+    <a href="{{ url_for('content.konten_list',
+               status=status_filter if status_filter else '',
+               platform=platform_filter if platform_filter else '') }}"
+       title="Hapus pencarian">×</a>
+  </div>
+{% endif %}
+
+
+{# ── Info jumlah hasil ── #}
+<div class="result-info">
+  Menampilkan <strong>{{ konten_list | length }}</strong> konten
+  {% if status_filter %} · status: <strong>{{ status_filter }}</strong>{% endif %}
+  {% if platform_filter %} · platform: <strong>{{ platform_filter }}</strong>{% endif %}
+</div>
+
+
+{# ── Tabel konten ── #}
+{% if konten_list %}
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-judul">Judul Konten</th>
+          <th class="col-platform">Platform</th>
+          <th class="col-status">Status</th>
+          <th class="col-jadwal">Jadwal Tayang</th>
+          <th class="col-dibuat">Dibuat</th>
+          <th class="col-aksi">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        {% for k in konten_list %}
+        <tr>
+
+          {# ── Judul + cuplikan caption ── #}
+          <td class="col-judul">
+            <span class="judul-text" title="{{ k.title }}">
+              {{ k.title }}
+            </span>
+            <span class="caption-preview">
+              {{ k.caption[:55] }}{% if k.caption|length > 55 %}...{% endif %}
+            </span>
+          </td>
+
+          {# ── Platform chip ── #}
+          <td class="col-platform">
+            {% if k.platform == 'instagram' %}
+              <span class="platform-chip chip-instagram">📸 Instagram</span>
+            {% elif k.platform == 'tiktok' %}
+              <span class="platform-chip chip-tiktok">🎵 TikTok</span>
+            {% else %}
+              <span class="platform-chip">{{ k.platform | capitalize }}</span>
+            {% endif %}
+          </td>
+
+          {# ── Badge status ── #}
+          <td class="col-status">
+            {% if k.status == 'draft' %}
+              <span class="badge badge-draft">✏️ Draft</span>
+            {% elif k.status == 'scheduled' %}
+              <span class="badge badge-scheduled">⏰ Terjadwal</span>
+            {% elif k.status == 'posted' %}
+              <span class="badge badge-posted">✅ Tayang</span>
+            {% else %}
+              <span class="badge badge-draft">{{ k.status }}</span>
+            {% endif %}
+          </td>
+
+          {# ── Jadwal tayang ── #}
+          <td class="col-jadwal">
+            {#
+              k.schedule = objek Schedule terkait (relasi one-to-one di models.py)
+              Bisa None kalau konten belum dijadwalkan
+            #}
+            {% if k.schedule %}
+              <div class="jadwal-cell">
+                {{ k.schedule.scheduled_datetime.strftime('%d %b %Y') }}
+                <div class="jam">
+                  🕐 {{ k.schedule.scheduled_datetime.strftime('%H:%M') }}
+                </div>
+              </div>
+            {% else %}
+              <span class="belum-dijadwal">Belum dijadwalkan</span>
+            {% endif %}
+          </td>
+
+          {# ── Tanggal dibuat ── #}
+          <td class="col-dibuat" style="font-size:12px; color:#AAA">
+            {{ k.created_at.strftime('%d %b %Y') }}
+          </td>
+
+          {# ── Tombol aksi ── #}
+          <td class="col-aksi">
+            <div class="aksi-group">
+
+              {# Tombol Edit #}
+              <a href="{{ url_for('content.konten_edit', id_konten=k.id) }}"
+                 class="btn-icon"
+                 title="Edit konten">
+                ✏️
+              </a>
+
+              {# Tombol Hapus — form POST supaya tidak bisa dihapus via URL biasa #}
+              <form action="{{ url_for('content.konten_hapus', id_konten=k.id) }}"
+                    method="POST"
+                    style="display:inline"
+                    onsubmit="return konfirmasiHapus('{{ k.title | replace("'", "\\'") }}')">
+                <button type="submit"
+                        class="btn-icon delete"
+                        title="Hapus konten">
+                  🗑️
+                </button>
+              </form>
+
+            </div>
+          </td>
+
+        </tr>
+        {% endfor %}{# /for konten #}
+
+      </tbody>
+    </table>
+  </div>
+
+{% else %}
+
+  {# ── Tampilan kosong ── #}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">
+        {% if kata_cari %}🔍
+        {% elif status_filter or platform_filter %}🎛️
+        {% else %}📭
+        {% endif %}
+      </div>
+      <div class="empty-state-title">
+        {% if kata_cari %}
+          Tidak ada konten untuk "{{ kata_cari }}"
+        {% elif status_filter or platform_filter %}
+          Tidak ada konten dengan filter ini
+        {% else %}
+          Belum ada konten
+        {% endif %}
+      </div>
+      <div class="empty-state-desc">
+        {% if kata_cari or status_filter or platform_filter %}
+          Coba ubah filter atau kata pencarian.
+        {% else %}
+          Mulai buat konten pertamamu sekarang!
+        {% endif %}
+      </div>
+      {% if kata_cari or status_filter or platform_filter %}
+        <a href="{{ url_for('content.konten_list') }}" class="btn btn-outline">
+          Hapus semua filter
+        </a>
+      {% else %}
+        <a href="{{ url_for('content.konten_baru') }}" class="btn btn-yellow">
+          + Buat Konten Pertama
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+{% endif %}
+
+
+<script>
+  // AUTO-REFRESH: Cek status postingan tiap 10 detik
+  let lastDataStr = null;
+  setInterval(() => {
+    fetch('/api/konten')
+      .then(res => res.json())
+      .then(data => {
+        // Kita bandingkan jumlah data dengan status 'posted' & 'scheduled'
+        const currentDataStr = JSON.stringify(data.map(item => item.status));
+        if (lastDataStr !== null && lastDataStr !== currentDataStr) {
+            console.log('Perubahan status terdeteksi! Memuat ulang halaman...');
+            window.location.reload();
+        }
+        lastDataStr = currentDataStr;
+      })
+      .catch(err => console.error('Gagal mengecek pembaruan konten:', err));
+  }, 10000);
+</script>
+
+{% endblock %}

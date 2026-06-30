@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{# Judul berbeda tergantung mode buat atau edit #}
+{% block title %}
+  {% if konten %}Edit Konten{% else %}Buat Konten Baru{% endif %}
+{% endblock %}
+
+{% block page_title %}
+  {% if konten %}✏️ Edit Konten{% else %}➕ Buat Konten Baru{% endif %}
+{% endblock %}
+
+
+{% block content %}
+
+{# ── Breadcrumb ── #}
+<div class="breadcrumb">
+  <a href="{{ url_for('content.konten_list') }}">← Kembali ke daftar konten</a>
+  <span>/</span>
+  <span>{% if konten %}Edit: {{ konten.title[:40] }}{% else %}Buat Konten Baru{% endif %}</span>
+</div>
+
+
+{#
+   Form utama.
+   enctype="multipart/form-data" WAJIB ada kalau form punya input file upload.
+   Tanpa ini, file tidak akan terkirim ke server!
+#}
+<form action="" method="POST" enctype="multipart/form-data" id="form-konten">
+
+  <div class="form-layout">
+
+    {# ═══════════════════════════════════════
+       KOLOM KIRI — Isi Konten
+    ═══════════════════════════════════════ #}
+    <div>
+
+      {# ── Seksi 1: Informasi Konten ── #}
+      <div class="form-section">
+        <div class="form-section-title">📝 Informasi Konten</div>
+
+        <div class="form-grid">
+
+          {# Judul Konten #}
+          <div class="form-group full">
+            <label class="form-label" for="title">
+              Judul Konten <span style="color:#E53935">*</span>
+            </label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              class="form-input"
+              placeholder="Contoh: Paket Umroh Ramadhan 2025"
+              {#
+                Kalau mode EDIT → isi dengan data lama (konten.title)
+                Kalau mode BUAT → isi dengan nilai form sebelumnya
+                                  (kalau form gagal disubmit)
+              #}
+              value="{% if konten %}{{ konten.title }}{% else %}{{ request.form.get('title', '') }}{% endif %}"
+              maxlength="200"
+              required
+            >
+          </div>
+
+          {# Platform #}
+          <div class="form-group">
+            <label class="form-label" for="platform">
+              Platform <span style="color:#E53935">*</span>
+            </label>
+            <select id="platform" name="platform" class="form-input" required>
+              <option value="">-- Pilih Platform --</option>
+              {#
+                selected = tandai pilihan yang cocok dengan data sebelumnya
+                Untuk edit: cocokkan dengan konten.platform
+                Untuk buat: cocokkan dengan nilai form sebelumnya
+              #}
+              {% set platform_val = konten.platform if konten else request.form.get('platform', '') %}
+              <option value="instagram" {% if platform_val == 'instagram' %}selected{% endif %}>
+                📸 Instagram
+              </option>
+              <option value="tiktok" {% if platform_val == 'tiktok' %}selected{% endif %}>
+                🎵 TikTok
+              </option>
+            </select>
+          </div>
+
+          {# Tipe Media #}
+          <div class="form-group">
+            <label class="form-label" for="tipe_media">Tipe Media</label>
+            <select id="tipe_media" name="tipe_media" class="form-input">
+              {% set tipe_val = request.form.get('tipe_media', '') %}
+              <option value="foto"  {% if tipe_val == 'foto'  %}selected{% endif %}>🖼️ Foto</option>
+              <option value="video" {% if tipe_val == 'video' %}selected{% endif %}>🎬 Video</option>
+              <option value="reels" {% if tipe_val == 'reels' %}selected{% endif %}>🎵 Reels</option>
+              <option value="story" {% if tipe_val == 'story' %}selected{% endif %}>📱 Story</option>
+            </select>
+          </div>
+
+        </div>{# /form-grid #}
+      </div>{# /seksi informasi #}
+
+
+      {# ── Seksi 2: Caption ── #}
+      <div class="form-section">
+        <div class="form-section-title">💬 Caption / Teks Takarir</div>
+
+        <div class="form-group">
+          <label class="form-label" for="caption">
+            Caption <span style="color:#E53935">*</span>
+          </label>
+          <textarea
+            id="caption"
+            name="caption"
+            class="form-input form-textarea"
+            placeholder="Tulis caption konten di sini...
+
+Contoh:
+✨ Wujudkan impian ibadah umroh bersama kami!
+🕌 Paket lengkap, berpengalaman, dan terpercaya.
+📞 Hubungi kami sekarang untuk info lebih lanjut.
+
+#UmrohBersama #DaytamaWisata #HajiUmroh"
+            maxlength="2200"
+            rows="7"
+            required
+            oninput="hitungKarakter(this)"
+          >{% if konten %}{{ konten.caption }}{% else %}{{ request.form.get('caption', '') }}{% endif %}</textarea>
+
+          {# Counter karakter — Instagram max 2200 karakter #}
+          <div class="char-counter" id="char-counter">
+            0 / 2200 karakter
+          </div>
+        </div>
+      </div>{# /seksi caption #}
+
+
+      {# ── Seksi 3: Upload Media ── #}
+      <div class="form-section">
+        <div class="form-section-title">🖼️ File Media (Foto / Video)</div>
+
+        {# Kalau mode EDIT dan sudah ada media sebelumnya #}
+        {% if konten and konten.media_url %}
+          <div class="current-media">
+            <span>📎</span>
+            <span>File saat ini: <a href="/{{ konten.media_url }}" target="_blank" style="color:#C49A0D; text-decoration:underline;" title="Buka file media"><strong>{{ konten.media_url.split('/')[-1] }}</strong></a></span>
+            <span style="color:#AAA">(Upload baru untuk mengganti)</span>
+          </div>
+        {% endif %}
+
+        {# Area upload drag & drop #}
+        <div class="upload-area" id="upload-area">
+          {# Input file tersembunyi di balik area ini #}
+          <input
+            type="file"
+            id="input-media"
+            name="media"
+            accept="image/jpeg,image/png,image/gif,video/mp4,video/quicktime"
+          >
+          <div class="upload-icon">📁</div>
+          <div class="upload-text">Klik atau seret file ke sini</div>
+          <div class="upload-hint">
+            Format: JPG, PNG, GIF, MP4, MOV · Maks. 16 MB
+          </div>
+        </div>
+
+        {# Preview file yang dipilih #}
+        <div class="media-preview" id="media-preview">
+          <img id="preview-img" src="" alt="Preview">
+          <div class="file-info">
+            <span>📄</span>
+            <span id="file-name"></span>
+            <span id="file-size" style="color:#AAA"></span>
+          </div>
+        </div>
+
+      </div>{# /seksi upload #}
+
+
+      {# ── Tombol aksi ── #}
+      <div class="form-actions">
+        <button type="submit" class="btn btn-yellow" id="btn-simpan">
+          {% if konten %}💾 Simpan Perubahan{% else %}✅ Buat Konten{% endif %}
+        </button>
+        <button type="submit" name="simpan_draft" value="1"
+                class="btn btn-outline" id="btn-draft">
+          📝 Simpan sebagai Draft
+        </button>
+        <a href="{{ url_for('content.konten_list') }}" class="btn btn-outline">
+          Batal
+        </a>
+      </div>
+
+    </div>{# /kolom kiri #}
+
+
+    {# ═══════════════════════════════════════
+       KOLOM KANAN — Jadwal & Tips
+    ═══════════════════════════════════════ #}
+    <div>
+
+      {# ── Panel Jadwal Auto-Posting ── #}
+      <div class="schedule-panel">
+        <div class="schedule-panel-title">
+          🤖 Penjadwalan Auto-Posting
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label" for="scheduled_date">Tanggal Publikasi</label>
+          <input
+            type="date"
+            id="scheduled_date"
+            name="scheduled_date"
+            class="form-input"
+            {# Kalau edit dan sudah ada jadwal, isi dengan tanggal lama #}
+            value="{% if konten and konten.schedule %}{{ konten.schedule.scheduled_datetime.strftime('%Y-%m-%d') }}{% else %}{{ request.form.get('scheduled_date', '') }}{% endif %}"
+            {# min = hari ini, tidak bisa pilih tanggal lampau #}
+            min="{{ now().strftime('%Y-%m-%d') }}"
+          >
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label" for="scheduled_time">Jam Publikasi</label>
+          <input
+            type="time"
+            id="scheduled_time"
+            name="scheduled_time"
+            class="form-input"
+            value="{% if konten and konten.schedule %}{{ konten.schedule.scheduled_datetime.strftime('%H:%M') }}{% else %}{{ request.form.get('scheduled_time', '08:00') }}{% endif %}"
+          >
+        </div>
+
+        {# Tombol cepat pilih jam populer #}
+        <div style="margin-bottom:12px">
+          <div class="form-label" style="margin-bottom:6px; color:#888">
+            Jam populer:
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            {% for jam in ['07:00', '09:00', '12:00', '17:00', '19:00', '21:00'] %}
+              <button type="button"
+                      class="btn-jam"
+                      onclick="setJam('{{ jam }}')"
+                      style="
+                        padding: 4px 10px;
+                        background: #2C2C2C;
+                        color: #888;
+                        border: 1px solid #3D3D3D;
+                        border-radius: 20px;
+                        font-size: 11px;
+                        cursor: pointer;
+                        font-family: 'Inter', sans-serif;
+                        transition: all 0.1s;
+                      ">
+                {{ jam }}
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Info APScheduler #}
+        <div class="scheduler-info">
+          <strong>⚙️ Cara kerja:</strong><br>
+          APScheduler akan mengecek jadwal setiap <strong>60 detik</strong>.
+          Konten akan diposting otomatis ke {{ ' ' }}
+          {% if konten %}{{ konten.platform | capitalize }}{% else %}platform yang dipilih{% endif %}
+          pada waktu yang ditentukan.
+          <br><br>
+          Biarkan kosong jika ingin simpan sebagai <strong>Draft</strong> dulu.
+        </div>
+
+      </div>{# /schedule-panel #}
+
+
+      {# ── Tips Konten ── #}
+      <div class="tips-card">
+        <div class="tips-title">💡 Tips Konten yang Baik</div>
+        <ul class="tips-list">
+          <li>Caption Instagram optimal 138–150 karakter untuk engagement terbaik.</li>
+          <li>Gunakan 3–5 hashtag relevan, hindari hashtag terlalu umum.</li>
+          <li>Posting di jam 07.00–09.00 atau 19.00–21.00 untuk jangkauan maksimal.</li>
+          <li>Konten video TikTok 15–30 detik mendapat tayangan lebih tinggi.</li>
+          <li>Selalu sertakan call-to-action (CTA) di akhir caption.</li>
+        </ul>
+      </div>
+
+    </div>{# /kolom kanan #}
+
+  </div>{# /form-layout #}
+
+</form>{# /form-konten #}
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+
+  // ── Counter karakter caption ─────────────────────────────
+  function hitungKarakter(textarea) {
+    const panjang  = textarea.value.length;
+    const maks     = 2200;
+    const counter  = document.getElementById('char-counter');
+
+    counter.textContent = panjang + ' / ' + maks + ' karakter';
+
+    // Ubah warna counter sesuai batas
+    counter.className = 'char-counter';
+    if (panjang > maks * 0.9)      counter.classList.add('warn');   // >90% = kuning
+    if (panjang >= maks)            counter.classList.add('limit');  // penuh = merah
+  }
+
+  // Hitung saat halaman dimuat (untuk mode edit)
+  const captionArea = document.getElementById('caption');
+  if (captionArea) hitungKarakter(captionArea);
+
+
+  // ── Preview file yang dipilih ────────────────────────────
+  document.getElementById('input-media').addEventListener('change', function (e) {
+    const file    = e.target.files[0];
+    const preview = document.getElementById('media-preview');
+    const img     = document.getElementById('preview-img');
+    const fname   = document.getElementById('file-name');
+    const fsize   = document.getElementById('file-size');
+
+    if (!file) { preview.classList.remove('show'); return; }
+
+    // Tampilkan nama dan ukuran file
+    fname.textContent = file.name;
+    fsize.textContent = '(' + (file.size / 1024 / 1024).toFixed(2) + ' MB)';
+
+    // Kalau file adalah gambar, tampilkan preview
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        img.src = ev.target.result;
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Kalau video, sembunyikan tag img
+      img.style.display = 'none';
+    }
+
+    preview.classList.add('show');
+  });
+
+
+  // ── Drag & drop area upload ──────────────────────────────
+  const uploadArea = document.getElementById('upload-area');
+
+  uploadArea.addEventListener('dragover', function (e) {
+    e.preventDefault();  // izinkan drop
+    uploadArea.classList.add('drag-over');
+  });
+
+  uploadArea.addEventListener('dragleave', function () {
+    uploadArea.classList.remove('drag-over');
+  });
+
+  uploadArea.addEventListener('drop', function (e) {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+
+    // Ambil file yang di-drop dan trigger event change
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      document.getElementById('input-media').files = files;
+      // Trigger event change supaya preview muncul
+      document.getElementById('input-media').dispatchEvent(new Event('change'));
+    }
+  });
+
+
+  // ── Tombol jam cepat ─────────────────────────────────────
+  function setJam(jam) {
+    document.getElementById('scheduled_time').value = jam;
+    // Highlight tombol yang dipilih
+    document.querySelectorAll('.btn-jam').forEach(function (btn) {
+      btn.style.background = '#2C2C2C';
+      btn.style.color      = '#888';
+      btn.style.borderColor= '#3D3D3D';
+    });
+    event.target.style.background  = '#F5C518';
+    event.target.style.color       = '#1A1A1A';
+    event.target.style.borderColor = '#F5C518';
+  }
+
+
+  // ── Validasi form sebelum submit ─────────────────────────
+  document.getElementById('form-konten').addEventListener('submit', function (e) {
+    const judul    = document.getElementById('title').value.trim();
+    const platform = document.getElementById('platform').value;
+    const caption  = document.getElementById('caption').value.trim();
+
+    if (!judul || !platform || !caption) {
+      e.preventDefault();
+      alert('⚠️ Judul, platform, dan caption wajib diisi!');
+      return;
+    }
+
+    // Loading state tombol
+    document.getElementById('btn-simpan').textContent = '⏳ Menyimpan...';
+    document.getElementById('btn-simpan').disabled    = true;
+  });
+
+</script>
+{% endblock %}

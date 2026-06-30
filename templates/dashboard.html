@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{# ── Isi halaman dashboard ── #}
+{% block content %}
+
+{#
+Hitung konten yang jadwal tayangnya hari ini.
+now() = fungsi Jinja2 dari app.py (perlu didaftarkan).
+Alternatif: hitung di app.py dan kirim via render_template.
+#}
+
+{# ── Alert konten hari ini ── #}
+{% set konten_hari_ini = jadwal_mendatang | selectattr('scheduled_datetime') | list %}
+{% if jadwal_mendatang %}
+<div class="today-alert">
+  <div class="today-alert-left">
+    <span class="today-alert-icon">🔔</span>
+    <span>
+      <span class="today-alert-count">{{ jadwal_mendatang | length }}</span>
+      konten dijadwalkan dalam 7 hari ke depan — pastikan aset sudah siap.
+    </span>
+  </div>
+  <a href="{{ url_for('main.kalender') }}" class="today-alert-link">Lihat kalender &rarr;</a>
+</div>
+{% endif %}
+
+
+{# ── BARIS 1: Kartu Statistik ── #}
+<div class="stats-grid">
+
+  {# Total Konten #}
+  <div class="stat-card">
+    <div class="stat-label">📄 Total Konten</div>
+    {#
+    stats adalah dictionary yang dikirim dari app.py.
+    Cara akses: stats['total'] atau stats.total
+    | default(0) = tampilkan 0 kalau nilainya None
+    #}
+    <div class="stat-value">{{ stats.total | default(0) }}</div>
+    <div class="stat-sub">semua konten</div>
+  </div>
+
+  {# Terjadwal #}
+  <div class="stat-card">
+    <div class="stat-label">⏰ Terjadwal</div>
+    <div class="stat-value" style="color:#C49A0D">
+      {{ stats.scheduled | default(0) }}
+    </div>
+    <div class="stat-sub">siap auto-posting</div>
+  </div>
+
+  {# Sudah Tayang #}
+  <div class="stat-card">
+    <div class="stat-label">✅ Sudah Tayang</div>
+    <div class="stat-value" style="color:#2E7D32">
+      {{ stats.posted | default(0) }}
+    </div>
+    <div class="stat-sub">berhasil diposting</div>
+  </div>
+
+  {# Draft #}
+  <div class="stat-card">
+    <div class="stat-label">✏️ Draft</div>
+    <div class="stat-value" style="color:#888">
+      {{ stats.draft | default(0) }}
+    </div>
+    <div class="stat-sub">belum dijadwalkan</div>
+  </div>
+
+</div>{# /stats-grid #}
+
+
+{# ── BARIS 2: Grafik + Jadwal ── #}
+<div class="dashboard-grid">
+
+  {# ── Kolom kiri: Grafik & Tabel ── #}
+  <div>
+
+    {# Grafik Batang Status Konten #}
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">
+        <span class="card-title">📊 Distribusi Status Konten</span>
+      </div>
+      <div class="card-body">
+
+        {# Hitung total untuk menentukan tinggi batang #}
+        {% set val_draft = stats.draft | default(0) | float %}
+        {% set val_sched = stats.scheduled | default(0) | float %}
+        {% set val_post = stats.posted | default(0) | float %}
+        {% set total_semua = val_draft + val_sched + val_post %}
+
+        {% if total_semua > 0 %}
+        <div class="chart-wrap" id="chart-wrap">
+
+          {# 2. Siapkan data chart dari variabel yang sudah dipastikan berupa angka #}
+          {% set chart_data = [
+          { 'label': 'Draft', 'value': val_draft, 'color': '#CCCCCC' },
+          { 'label': 'Terjadwal', 'value': val_sched, 'color': '#F5C518' },
+          { 'label': 'Tayang', 'value': val_post, 'color': '#2E7D32' },
+          ] %}
+
+          {# 3. Cari nilai maksimal, dan pastikan tidak pernah 0 (or 1) #}
+          {% set max_val = [val_draft, val_sched, val_post] | max %}
+          {% set max_val = max_val if max_val > 0 else 1 %}
+
+          {# 4. Render batang grafik #}
+          {% for item in chart_data %}
+          {% set bar_height = ((item.value / max_val) * 90) | int %}
+          <div class="bar-item">
+            <div class="bar-fill" {{ ('style="height: ' ~ bar_height ~ 'px; background: ' ~ item.color ~ ';"') | safe }}
+              title="{{ item.label }}: {{ item.value | int }}">
+              <div class="bar-tooltip">{{ item.value | int }}</div>
+            </div>
+            <div class="bar-label">{{ item.label }}</div>
+          </div>
+          {% endfor %}
+
+        </div>
+        {% else %}
+        {# Tampilkan pesan kosong kalau belum ada data #}
+        <div style="text-align:center; padding:20px; color:#AAA; font-size:13px">
+          Belum ada data konten untuk ditampilkan.
+        </div>
+        {% endif %}
+
+      </div>
+    </div>{# /card grafik #}
+
+
+    {# Tabel Konten Terbaru #}
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🕐 Konten Terbaru</span>
+        <a href="{{ url_for('content.konten_list') }}" class="btn btn-outline btn-sm">
+          Lihat semua →
+        </a>
+      </div>
+
+      {# Cek apakah ada data konten #}
+      {% if konten_terbaru %}
+      <div class="table-wrap" style="border:none; border-radius:0">
+        <table>
+          <thead>
+            <tr>
+              <th>Judul Konten</th>
+              <th>Platform</th>
+              <th>Status</th>
+              <th>Dibuat</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            {# Loop setiap konten — konten_terbaru dikirim dari app.py #}
+            {% for k in konten_terbaru %}
+            <tr>
+
+              {# Kolom judul + cuplikan caption #}
+              <td class="content-title-cell">
+                <span class="content-title-text" title="{{ k.title }}">
+                  {{ k.title }}
+                </span>
+                {#
+                k.caption[:60] = ambil 60 karakter pertama caption
+                ~ '...' = sambung dengan '...'
+                if k.caption | length > 60 = hanya kalau panjang > 60
+                #}
+                <span class="content-caption">
+                  {{ k.caption[:60] }}{% if k.caption | length > 60 %}...{% endif %}
+                </span>
+              </td>
+
+              {# Kolom platform dengan ikon #}
+              <td>
+                <span class="platform-label">
+                  {% if k.platform == 'instagram' %}
+                  <span class="platform-dot dot-instagram"></span> Instagram
+                  {% elif k.platform == 'tiktok' %}
+                  <span class="platform-dot dot-tiktok"></span> TikTok
+                  {% else %}
+                  {{ k.platform | capitalize }}
+                  {% endif %}
+                </span>
+              </td>
+
+              {# Kolom badge status #}
+              <td>
+                {#
+                k.status bisa: 'draft', 'scheduled', 'posted'
+                Kita tampilkan badge berbeda untuk tiap status
+                #}
+                {% if k.status == 'draft' %}
+                <span class="badge badge-draft">✏️ Draft</span>
+                {% elif k.status == 'scheduled' %}
+                <span class="badge badge-scheduled">⏰ Terjadwal</span>
+                {% elif k.status == 'posted' %}
+                <span class="badge badge-posted">✅ Tayang</span>
+                {% else %}
+                <span class="badge badge-draft">{{ k.status }}</span>
+                {% endif %}
+              </td>
+
+              {# Kolom tanggal #}
+              <td style="font-size:12px; color:#888; white-space:nowrap">
+                {#
+                k.created_at adalah objek datetime Python.
+                strftime = format tanggal menjadi teks.
+                '%d %b %Y' = contoh: "15 Jun 2025"
+                #}
+                {{ k.created_at.strftime('%d %b %Y') }}
+              </td>
+
+              {# Kolom tombol aksi #}
+              <td>
+                <div class="action-btns">
+                  {# Tombol Edit #}
+                  <a href="{{ url_for('content.konten_edit', id_konten=k.id) }}" class="btn btn-outline btn-sm"
+                    title="Edit konten">
+                    ✏️
+                  </a>
+                  {# Tombol Hapus — pakai form POST untuk keamanan #}
+                  <form action="{{ url_for('content.konten_hapus', id_konten=k.id) }}" method="POST" style="display:inline"
+                    onsubmit="return konfirmasiHapus('{{ k.title }}')">
+                    <button type="submit" class="btn btn-outline btn-sm" style="color:#E53935" title="Hapus konten">
+                      🗑️
+                    </button>
+                  </form>
+                </div>
+              </td>
+
+            </tr>
+            {% endfor %}{# /for konten #}
+
+          </tbody>
+        </table>
+      </div>
+
+      {% else %}
+      {# Tampilan kalau belum ada konten #}
+      <div class="empty-state">
+        <div class="empty-state-icon">📭</div>
+        <div class="empty-state-title">Belum ada konten</div>
+        <div class="empty-state-desc">Mulai buat konten pertamamu sekarang!</div>
+        <a href="{{ url_for('content.konten_baru') }}" class="btn btn-yellow">
+          + Buat Konten Pertama
+        </a>
+      </div>
+      {% endif %}
+
+    </div>{# /card tabel #}
+
+  </div>{# /kolom kiri #}
+
+
+  {# ── Kolom kanan: Jadwal Mendatang ── #}
+  <div>
+    <div class="card" style="height:100%">
+      <div class="card-header">
+        <span class="card-title">📅 Jadwal Mendatang</span>
+        <a href="{{ url_for('main.kalender') }}" class="btn btn-outline btn-sm">
+          Kalender
+        </a>
+      </div>
+      <div class="card-body" style="padding: 14px">
+        {% if jadwal_mendatang %}
+        <div class="schedule-list">
+        {% for j in jadwal_mendatang %}
+
+        {# j.content = objek Content terkait (via relasi di models.py) #}
+        {% if j.content %}
+        <a href="{{ url_for('content.konten_edit', id_konten=j.content.id) }}" class="schedule-item">
+
+          {# Kotak tanggal #}
+          <div class="schedule-date-box">
+            {#
+            j.scheduled_datetime adalah datetime object.
+            '%d' = hari (01-31)
+            '%b' = nama bulan singkat (Jan, Feb, ...)
+            #}
+            <div class="schedule-day">
+              {{ j.scheduled_datetime.strftime('%d') }}
+            </div>
+            <div class="schedule-month">
+              {{ j.scheduled_datetime.strftime('%b') }}
+            </div>
+          </div>
+
+          {# Info konten #}
+          <div class="schedule-info">
+            <div class="schedule-title">{{ j.content.title }}</div>
+            <div class="schedule-meta">
+              {# Format jam: '08:00' #}
+              🕐 {{ j.scheduled_datetime.strftime('%H:%M') }}
+              &nbsp;·&nbsp;
+              {% if j.content.platform == 'instagram' %}📸{% else %}🎵{% endif %}
+              {{ j.content.platform | capitalize }}
+            </div>
+          </div>
+
+          {# Titik warna platform #}
+          <div class="platform-dot
+                  {% if j.content.platform == 'instagram' %}dot-instagram
+                  {% else %}dot-tiktok{% endif %}">
+          </div>
+
+        </a>
+        {% endif %}
+
+        {% endfor %}{# /for jadwal #}
+      </div>
+
+      {% else %}
+      {# Kalau tidak ada jadwal mendatang #}
+      <div class="empty-state" style="padding:30px 10px">
+        <div class="empty-state-icon">📆</div>
+        <div class="empty-state-title">Tidak ada jadwal</div>
+        <div class="empty-state-desc">
+          Buat konten baru dan jadwalkan posting-nya.
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>{# /card jadwal #}
+</div>{# /kolom kanan #}
+
+</div>{# /dashboard-grid #}
+
+
+
+
+{% endblock %}{# /content #}
+
+
+{# ── JavaScript khusus dashboard ── #}
+{% block extra_js %}
+<script>
+  // ── Animasi batang grafik saat halaman dimuat ──────────────
+  // Simpan tinggi asli, reset ke 0, lalu animate naik
+  window.addEventListener('load', function () {
+    const bars = document.querySelectorAll('.bar-fill');
+    bars.forEach(function (bar) {
+      // Simpan tinggi target dari style
+      const targetHeight = bar.style.height;
+      // Reset ke 0 dulu
+      bar.style.height = '0px';
+      bar.style.transition = 'none';
+      // Setelah 100ms, animate ke tinggi asli
+      setTimeout(function () {
+        bar.style.transition = 'height 0.7s cubic-bezier(.4,0,.2,1)';
+        bar.style.height = targetHeight;
+      }, 100);
+    });
+  });
+</script>
+
+<script>
+  // AUTO-REFRESH: Cek status postingan tiap 10 detik
+  let lastDataStr = null;
+  setInterval(() => {
+    fetch('/api/konten')
+      .then(res => res.json())
+      .then(data => {
+        // Kita bandingkan jumlah data dengan status 'posted' & 'scheduled'
+        const currentDataStr = JSON.stringify(data.map(item => item.status));
+        if (lastDataStr !== null && lastDataStr !== currentDataStr) {
+            console.log('Perubahan status terdeteksi! Memuat ulang halaman...');
+            window.location.reload();
+        }
+        lastDataStr = currentDataStr;
+      })
+      .catch(err => console.error('Gagal mengecek pembaruan konten:', err));
+  }, 10000);
+</script>
+
+{% endblock %}

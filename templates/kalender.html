@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Kalender Konten{% endblock %}
+{% block page_title %}Kalender Konten{% endblock %}
+
+{% block extra_css %}
+<!-- FullCalendar CSS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+
+{% endblock %}
+
+{% block content %}
+<div class="calendar-container">
+  <div id='calendar'></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- FullCalendar JS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+
+    // Data events dikirim dari app.py
+    var eventsData = {{ events | tojson | safe }};
+
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      },
+      events: eventsData,
+      eventClick: function(info) {
+        // Tampilkan info singkat saat jadwal diklik
+        alert(
+          'Judul: ' + info.event.title + '\n' +
+          'Platform: ' + info.event.extendedProps.platform + '\n' +
+          'Status: ' + info.event.extendedProps.status
+        );
+      }
+    });
+
+    calendar.render();
+  });
+</script>
+{% endblock %}

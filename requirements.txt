@@ -1,0 +1,57 @@
+# ============================================================
+#  requirements.txt — Daftar Library ContentPlan
+#  PT. Daytama Sinergi Wisata
+# ============================================================
+#
+#  Cara install semua sekaligus:
+#  pip install -r requirements.txt
+#
+#  Pastikan virtual environment sudah aktif dulu:
+#  venv\Scripts\activate  (Windows)
+#  source venv/bin/activate  (Mac/Linux)
+#
+# ============================================================
+
+# ── Framework Web Utama ──────────────────────────────────────
+Flask==3.0.3
+# Flask adalah framework web Python yang kita pakai.
+# Berisi: routing, template engine (Jinja2), request/response, dll.
+
+# ── Database ─────────────────────────────────────────────────
+Flask-SQLAlchemy==3.1.1
+# ORM (Object Relational Mapper) — menghubungkan Flask ke database.
+# Kita bisa query database pakai Python tanpa nulis SQL langsung.
+
+# ── Login & Autentikasi ──────────────────────────────────────
+Flask-Login==0.6.3
+# Mengelola sesi login pengguna.
+# Menyediakan: login_user(), logout_user(), current_user, login_required
+
+# ── Keamanan ─────────────────────────────────────────────────
+Werkzeug==3.0.3
+# Dipakai untuk:
+# - generate_password_hash() → enkripsi password sebelum disimpan
+# - check_password_hash()    → cek password saat login
+# - secure_filename()        → amankan nama file upload
+
+# ── Penjadwal Otomatis (Auto-Posting) ────────────────────────
+APScheduler==3.10.4
+Flask-APScheduler==1.13.1
+# Library untuk menjalankan fungsi secara otomatis terjadwal.
+# Kita pakai untuk cek_dan_posting_konten() setiap 60 detik.
+
+# ── Variabel Lingkungan ──────────────────────────────────────
+python-dotenv==1.0.1
+# Membaca file .env supaya password database tidak ditulis
+# langsung di kode (lebih aman).
+
+# ── Driver Database MySQL ─────────────────────────────────────
+pymysql==1.1.1
+# Driver untuk koneksi ke MySQL.
+# Diperlukan kalau pakai MySQL (sesuai laporan BAB 3).
+# Kalau pakai SQLite (untuk belajar), boleh tidak diinstall.
+
+# ── Keamanan Koneksi Database ────────────────────────────────
+cryptography==42.0.8
+# Dibutuhkan oleh pymysql untuk koneksi database yang terenkripsi.
+requests==2.31.0  

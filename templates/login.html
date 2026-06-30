@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{# Ganti judul tab browser #}
+{% block title %}Login{% endblock %}
+
+
+
+
+{# ── Isi halaman login ── #}
+{% block content %}
+
+<div class="login-wrapper">
+
+  {# ── Panel Kiri: Branding ── #}
+  <div class="login-left">
+    <div class="login-brand-icon">
+      {# Memanggil gambar logo dari folder static/img #}
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Daytama" class="login-logo-img">
+    </div>
+    <div class="login-brand-name">ContentPlan</div>
+    <div class="login-brand-sub">PT. Daytama Sinergi Wisata</div>
+
+    <ul class="login-features">
+      <li>📝 Kelola skrip konten dengan mudah</li>
+      <li>📅 Jadwalkan posting otomatis</li>
+      <li>📈 Pantau performa konten</li>
+      <li>🤖 Auto-posting Instagram & TikTok</li>
+    </ul>
+  </div>
+
+  {# ── Panel Kanan: Form Login ── #}
+  <div class="login-right">
+
+    <div class="login-title">Selamat Datang 👋</div>
+    <div class="login-subtitle">Masuk untuk mengelola konten media sosial</div>
+
+    {#
+    action="" → kirim form ke URL yang sama (/login)
+    method="POST" → kirim data secara POST (bukan tampil di URL)
+    #}
+    <form action="" method="POST" id="login-form" novalidate>
+
+      {# Field Username #}
+      <div class="form-group">
+        <label class="form-label" for="username">Username</label>
+        <input type="text" id="username" name="username" class="form-input" placeholder="Masukkan username" {# Isi ulang
+          nilai sebelumnya kalau form gagal disubmit #} value="{{ request.form.get('username', '') }}"
+          autocomplete="username" required>
+        <div class="input-error" id="err-username">Username wajib diisi.</div>
+      </div>
+
+      {# Field Password #}
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <div style="position:relative">
+          <input type="password" id="password" name="password" class="form-input" placeholder="Masukkan password"
+            autocomplete="current-password" style="padding-right: 42px" required>
+          {# Tombol tampilkan/sembunyikan password #}
+          <button type="button" onclick="togglePassword()" style="
+              position: absolute; right: 12px; top: 50%;
+              transform: translateY(-50%);
+              background: none; border: none;
+              font-size: 16px; cursor: pointer; color: #AAA;
+              padding: 0; line-height: 1;
+            " title="Tampilkan password">👁️</button>
+        </div>
+        <div class="input-error" id="err-password">Password wajib diisi.</div>
+      </div>
+
+      {# Checkbox Ingat Saya #}
+      <div class="remember-row">
+        <input type="checkbox" id="ingat_saya" name="ingat_saya" value="1">
+        <label for="ingatkan_saya">Ingatkan saya</label>
+      </div>
+
+      {# Tombol Submit #}
+      <button type="submit" class="btn-login" id="btn-submit">
+        Masuk
+      </button>
+
+    </form>{# /form #}
+
+
+
+  </div>{# /login-right #}
+
+</div>{# /login-wrapper #}
+{% endblock %}
+
+{# ── JavaScript khusus halaman login ── #}
+{% block extra_js %}
+<script>
+  // ── Tampilkan/sembunyikan password ──────────────────────
+  function togglePassword() {
+    const input = document.getElementById('password');
+    // Kalau type="password" → ubah ke text (tampil)
+    // Kalau type="text"     → ubah ke password (sembunyikan)
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  // ── Validasi form sebelum dikirim ───────────────────────
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+
+    let valid = true;  // asumsi awal: form valid
+
+    const username = document.getElementById('username');
+    const password = document.getElementById('password');
+    const errUser = document.getElementById('err-username');
+    const errPass = document.getElementById('err-password');
+
+    // Reset error sebelumnya
+    username.classList.remove('error');
+    password.classList.remove('error');
+    errUser.style.display = 'none';
+    errPass.style.display = 'none';
+
+    // Validasi username kosong
+    if (!username.value.trim()) {
+      username.classList.add('error');
+      errUser.style.display = 'block';
+      valid = false;
+    }
+
+    // Validasi password kosong
+    if (!password.value) {
+      password.classList.add('error');
+      errPass.style.display = 'block';
+      valid = false;
+    }
+
+    // Kalau tidak valid → hentikan pengiriman form
+    if (!valid) {
+      e.preventDefault();
+      return;
+    }
+
+    // Kalau valid → tampilkan loading di tombol
+    const btn = document.getElementById('btn-submit');
+    btn.textContent = 'Memproses...';
+    btn.disabled = true;
+  });
+
+  // ── Hilangkan loading jika halaman di-back ───────────────
+  // (supaya tombol tidak stuck di "Memproses..." waktu klik back)
+  window.addEventListener('pageshow', function () {
+    const btn = document.getElementById('btn-submit');
+    btn.textContent = 'Masuk';
+    btn.disabled = false;
+  });
+</script>
+{% endblock %}
